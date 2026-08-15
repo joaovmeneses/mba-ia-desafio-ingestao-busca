@@ -1,3 +1,12 @@
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+
+from providers import get_llm
+from store import get_vector_store
+
+RETRIEVED_CHUNKS = 10
+
 PROMPT_TEMPLATE = """
 CONTEXTO:
 {contexto}
@@ -25,5 +34,30 @@ PERGUNTA DO USUÁRIO:
 RESPONDA A "PERGUNTA DO USUÁRIO"
 """
 
+def build_chain():
+    store = get_vector_store()
+    llm = get_llm()
+
+    def retrieve_context(question: str) -> str:
+        matches = store.similarity_search_with_score(question, k=RETRIEVED_CHUNKS)
+        return "\n\n".join(document.page_content for document, _distance in matches)
+
+    return (
+        {
+            "contexto": RunnableLambda(retrieve_context),
+            "pergunta": RunnablePassthrough(),
+        }
+        | PromptTemplate.from_template(PROMPT_TEMPLATE)
+        | llm
+        | StrOutputParser()
+    )
+
+
 def search_prompt(question=None):
-    pass
+    try:
+        chain = build_chain()
+    except Exception as error:
+        print(f"Erro ao inicializar a busca: {error}")
+        return None
+
+    return chain.invoke(question) if question else chain

@@ -7,7 +7,8 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: rag
     ports:
-      - "5432:5432"
+      # 55432 no host: a 5432 local já está ocupada. 5432 é a porta interna do container.
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,10 +24,13 @@ services:
       postgres:
         condition: service_healthy
     entrypoint: ["/bin/sh", "-c"]
-    command: >
-      PGPASSWORD=postgres
-      psql "postgresql://postgres@postgres:5432/rag" -v ON_ERROR_STOP=1
-      -c "CREATE EXTENSION IF NOT EXISTS vector;"
+    # O command precisa ser UM único elemento de lista: `sh -c` só executa o primeiro
+    # argumento como script. Escrito como string solta, o compose quebra em 7 argumentos
+    # e o shell roda apenas `PGPASSWORD=postgres`, saindo com 0 sem criar a extensão.
+    command:
+      - |
+        PGPASSWORD=postgres psql "postgresql://postgres:postgres@postgres:5432/rag" \
+          -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS vector;"
     restart: "no"
 
 volumes:
