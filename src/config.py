@@ -12,6 +12,7 @@ PG_VECTOR_COLLECTION_NAME = os.getenv("PG_VECTOR_COLLECTION_NAME")
 PDF_PATH = os.getenv("PDF_PATH")
 OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-5-nano")
+AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.3"))
 
 
 def require_env(*names: str) -> None:

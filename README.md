@@ -61,12 +61,21 @@ deste repositório:
 | `OPENAI_API_KEY` | sua chave |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` |
 | `OPENAI_CHAT_MODEL` | `gpt-5-nano` |
+| `AI_TEMPERATURE` | `0.3` |
 | `DATABASE_URL` | `postgresql+psycopg://postgres:postgres@localhost:55432/rag` |
 | `PG_VECTOR_COLLECTION_NAME` | `desafio_rag` |
 | `PDF_PATH` | `./document.pdf` |
 
 O sufixo `+psycopg` na `DATABASE_URL` é obrigatório: o `langchain-postgres` usa SQLAlchemy
 com psycopg 3, e uma URL `postgresql://` pura seleciona o psycopg2.
+
+A `AI_TEMPERATURE` controla a liberdade do modelo ao redigir: `0` é o mais determinístico, `1`
+o mais criativo. Alterar não exige reingestão — afeta só a geração da resposta, não os embeddings.
+
+> **A família gpt-5 aceita apenas `temperature=1`.** Com o `gpt-5-nano` do enunciado, o
+> `langchain-openai` remove qualquer outro valor antes de chamar a API, sem erro nem aviso — a
+> variável fica inerte. Ela passa a valer se você trocar a `OPENAI_CHAT_MODEL` por um modelo que
+> aceite o parâmetro, como `gpt-4o-mini`.
 
 ### 4. Ingira o PDF
 
