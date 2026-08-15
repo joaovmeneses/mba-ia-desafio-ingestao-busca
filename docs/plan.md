@@ -416,14 +416,15 @@ A parte sem referência para copiar (§3.1).
 
 ---
 
-### M4 — CLI ⬜
+### M4 — CLI ✅ (2026-08-15)
 
-- [ ] `src/chat.py` — loop de `input()` preservando `main()` e o early-return do stub
-- [ ] Formato de saída conforme o enunciado (`PERGUNTA:` / `RESPOSTA:`)
-- [ ] Saída limpa: comando de sair (`sair`/`exit`), `Ctrl+C` e `Ctrl+D` sem stacktrace
-- [ ] Tratar pergunta vazia
+- [x] `src/chat.py` — loop de `input()` preservando `main()` e o early-return do stub
+- [x] Formato de saída conforme o enunciado (`PERGUNTA:` / `RESPOSTA:`)
+- [x] Saída limpa: `sair`/`exit`/`quit`, `Ctrl+C` e `Ctrl+D` sem stacktrace
+- [x] Pergunta vazia ignorada, sem consumir chamada de API
+- [x] Erro durante a resposta não derruba a sessão — informa e continua o loop
 
-**DoD:** `python src/chat.py` roda a sessão completa do exemplo do enunciado, incluindo pergunta fora de contexto.
+**DoD atingida:** sessão completa do exemplo do enunciado, incluindo pergunta fora de contexto e encerramento por EOF com exit code 0.
 
 ---
 
