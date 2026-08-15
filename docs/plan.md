@@ -245,6 +245,7 @@ Formato: `Aberta` = precisa de definição antes/durante a execução · `Decidi
 | **D14** | `search_prompt(question=None)` com argumento | 🟢 Decidida (2026-08-15) | **Suportar os dois modos.** Sem argumento → devolve a chain (o que `chat.py` usa). Com pergunta → invoca e devolve a resposta em `str`. ~3 linhas, defende contra avaliação automática que chame de outra forma. |
 | **D15** | Threshold de score na busca | 🟢 Decidida | **Não aplicar.** O enunciado fixa `k=10`; toda pergunta fora de contexto vai receber 10 chunks irrelevantes e a recusa depende **inteiramente** do `PROMPT_TEMPLATE`. É by design — registrado para não sermos tentados a "consertar" depois. Os scores são descartados (mas ver E3: a API devolve tuplas). |
 | **D16** | Limpeza ao mudar parâmetros de chunking | 🟢 Decidida (2026-08-15) | Mudança em `chunk_size`/`overlap`/provider exige **dropar a coleção antes de re-ingerir** — senão sobram vetores órfãos de índice alto (E2). Documentar no README + comando pronto na M2. |
+| **D18** | Idioma e comentários no código | 🟢 Decidida (2026-08-15) | **Identificadores, funções e tipos 100% em inglês. Zero comentários e docstrings explicativos** — quando foi preciso explicar o retorno ou a mecânica de uma função, o certo é extrair/renomear até o código dizer sozinho. **Exceções, que são dados e não código:** o `PROMPT_TEMPLATE`, as chaves `contexto`/`pergunta` que casam com ele, e as strings de saída em português (formato `PERGUNTA:`/`RESPOSTA:` do enunciado + mensagem original do skeleton). Bate com a convenção do repo do professor (§3.1: código em inglês, saída em português). |
 | **D17** | Plano B de modelo | ⚪ **Não necessário** — `gpt-5-nano` disponível (verificado na M1); mantido só como contingência | Se `gpt-5-nano` não estiver liberado na chave: cair para `gpt-4o-mini` (mesma família de API, sem restrição de `temperature`) e **registrar o desvio no README**, já que o enunciado nomeia `gpt-5-nano`. Ordem de tentativa: `gpt-5-nano` → `gpt-5-mini` → `gpt-4o-mini`. |
 
 ---
@@ -368,7 +369,7 @@ Alfa Energia Holding R$ 858.537,02 1971
 - [x] `PDF_PATH` resolvido via `config.resolve_pdf_path()` (B4, feito na M1)
 - [x] Feedback no terminal: páginas, chunks, confirmação de gravação
 - [x] `python src/ingest.py` executado
-- [x] Comando de limpeza (D16) documentado no docstring do módulo
+- [x] Comando de limpeza (D16) — sai do código por conta da D18; vai para o README na M6
 
 **DoD atingida:**
 
@@ -446,6 +447,7 @@ A parte sem referência para copiar (§3.1).
 ### M6 — Entrega ⬜
 
 - [ ] `README.md` — pré-requisitos, subir Docker, venv + deps, `.env`, rodar ingestão, rodar chat, exemplos de perguntas
+- [ ] README: comando de limpeza da coleção (D16) e nota de que não há histórico de conversa (R13)
 - [ ] Confirmar que `.env` **não** está versionado e que `.env.example` não tem segredo
 - [ ] Atualizar `CLAUDE.md` (a seção de execução diz para rodar de dentro de `src/`; `python src/chat.py` a partir da raiz também funciona e é o comando que vamos documentar)
 - [ ] Commit + push da branch e abertura do PR para `main`

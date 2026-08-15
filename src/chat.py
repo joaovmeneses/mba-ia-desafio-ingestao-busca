@@ -1,11 +1,24 @@
-"""Chat de linha de comando sobre o conteúdo do PDF ingerido.
-
-Uso: `python src/chat.py`. Requer que `ingest.py` já tenha rodado.
-"""
-
 from search import search_prompt
 
-COMANDOS_DE_SAIDA = {"sair", "exit", "quit"}
+EXIT_COMMANDS = {"sair", "exit", "quit"}
+END_OF_INPUT = None
+
+
+def read_question():
+    try:
+        return input("PERGUNTA: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return END_OF_INPUT
+
+
+def answer(chain, question) -> str:
+    try:
+        return chain.invoke(question)
+    except KeyboardInterrupt:
+        return "Consulta interrompida."
+    except Exception as error:
+        return f"Erro ao responder: {error}"
 
 
 def main():
@@ -18,29 +31,15 @@ def main():
     print("Faça sua pergunta (digite 'sair' para encerrar).\n")
 
     while True:
-        try:
-            pergunta = input("PERGUNTA: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            # Ctrl+D / Ctrl+C encerram sem stacktrace.
-            print()
+        question = read_question()
+
+        if question is END_OF_INPUT or question.lower() in EXIT_COMMANDS:
             break
 
-        if not pergunta:
+        if not question:
             continue
 
-        if pergunta.lower() in COMANDOS_DE_SAIDA:
-            break
-
-        try:
-            resposta = chain.invoke(pergunta)
-        except KeyboardInterrupt:
-            print("\nConsulta interrompida.\n")
-            continue
-        except Exception as erro:
-            print(f"Erro ao responder: {erro}\n")
-            continue
-
-        print(f"RESPOSTA: {resposta}\n")
+        print(f"RESPOSTA: {answer(chain, question)}\n")
 
     print("Até mais!")
 
