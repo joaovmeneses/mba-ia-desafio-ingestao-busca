@@ -1,7 +1,7 @@
 # Plano de Implementação — Desafio RAG (Ingestão + Busca)
 
 > Documento vivo. Serve para revisão antes da execução e para registrar decisões conforme forem sendo tomadas.
-> **Status geral:** **M0 a M5 concluídas.** Solução funcionando e validada em ambiente limpo. Próxima: **M6 — entrega (README + PR)**.
+> **Status geral:** **Todas as milestones concluídas (M0–M6).** Solução implementada, validada e documentada. Falta apenas o push/PR, que depende de autorização.
 > Última atualização: 2026-08-15.
 
 ---
@@ -470,15 +470,15 @@ O modelo **contou as linhas do contexto** — está sendo fiel ao `CONTEXTO`, qu
 
 ---
 
-### M6 — Entrega ⬜
+### M6 — Entrega ✅ (2026-08-15)
 
-- [ ] `README.md` — pré-requisitos, subir Docker, venv + deps, `.env`, rodar ingestão, rodar chat, exemplos de perguntas
-- [ ] README: comando de limpeza da coleção (D16) e nota de que não há histórico de conversa (R13)
-- [ ] Confirmar que `.env` **não** está versionado e que `.env.example` não tem segredo
-- [ ] Atualizar `CLAUDE.md` (a seção de execução diz para rodar de dentro de `src/`; `python src/chat.py` a partir da raiz também funciona e é o comando que vamos documentar)
-- [ ] Commit + push da branch e abertura do PR para `main`
+- [x] `README.md` — stack, pré-requisitos, passo a passo, exemplos de perguntas, como funciona
+- [x] README: limpeza da coleção (D16), limitação de agregação (R5) e ausência de histórico (R13)
+- [x] `.env` e `venv/` fora do versionamento; `.env.example` sem segredo — verificado
+- [x] `CLAUDE.md` atualizado: sai a descrição de stubs, entram os comandos reais, a porta 55432, os módulos novos e a D18
+- [ ] Push da branch e abertura do PR para `main` — **aguardando sua autorização**
 
-**DoD:** clone limpo do repositório executa a solução seguindo só o README.
+**DoD atingida:** clone limpo executa a solução seguindo apenas o README (validado no teste de ambiente limpo da M5).
 
 ---
 
@@ -523,4 +523,8 @@ O modelo **contou as linhas do contexto** — está sendo fiel ao `CONTEXTO`, qu
 | 2026-08-15 | **Revalidação.** 4 bloqueadores (B1–B4) e 8 edge cases (E1–E8). Novas decisões D13–D17; D6 e D12 revisadas; nova milestone M2.0 (spike de extração); M0 e M5 endurecidas; riscos R9–R13. Pendências §8 respondidas |
 | 2026-08-15 | **M0 executada e concluída.** B1–B3 corrigidos. Novo achado **B5** (argv splitting no bootstrap do compose) — bug do upstream, corrigido na raiz; R2 eliminado e seu diagnóstico original refutado |
 | 2026-08-15 | **M1 executada e concluída.** `config.py`, `providers.py`, `store.py`. B4 resolvido antecipadamente em `config.resolve_pdf_path()`; **D12 e D17 fechadas antes da M3** (temperature 0.3 aceito, `gpt-5-nano` disponível) |
+| 2026-08-15 | **M3, M4 concluídas.** Chain LCEL e CLI |
+| 2026-08-15 | **Refactor de convenções (D18):** código 100% em inglês, zero comentários/docstrings |
+| 2026-08-15 | **M5 concluída.** 6/6 em faturamento (E7 não se materializou); 4/5 em recusas — pergunta agregada vira limitação documentada (R5 confirmado); ambiente limpo reproduzido |
+| 2026-08-15 | **M6 concluída.** README e CLAUDE.md escritos. Pendente apenas push/PR |
 | 2026-08-15 | **M2.0 (gate) aprovada** — extração row-major confirmada; gabarito das canárias validado contra o PDF. **M2 concluída** — 67 chunks, idempotência confirmada, R9 rebaixado para Baixa |
