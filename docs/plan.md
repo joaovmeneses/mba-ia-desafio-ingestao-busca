@@ -1,7 +1,7 @@
 # Plano de Implementação — Desafio RAG (Ingestão + Busca)
 
 > Documento vivo. Serve para revisão antes da execução e para registrar decisões conforme forem sendo tomadas.
-> **Status geral:** **M0 e M1 concluídas.** Ambiente no ar, providers e store validados. Próxima: **M2.0 — spike de extração do PDF** (gate).
+> **Status geral:** **M0, M1, M2.0 e M2 concluídas.** 67 chunks ingeridos e retrieval validado. Próxima: **M3 — busca e chain**.
 > Última atualização: 2026-08-15.
 
 ---
@@ -107,13 +107,16 @@ Recorrentes em todas as entregas analisadas:
 
 | Pergunta | Resposta esperada |
 |---|---|
-| Qual o faturamento da Empresa SuperTechIABrazil? | R$ 10.000.000,00 |
-| Qual foi o ano de fundação e faturamento da empresa Aurora Educação EPP? | 1958 / R$ 4.321.211.894,95 |
+| Qual o faturamento da Empresa SuperTechIABrazil? | R$ 10.000.000,00 (ano 2025) ✅ **conferido no PDF** |
+| Qual foi o ano de fundação e faturamento da empresa Aurora Educação EPP? | 1958 / R$ 4.321.211.894,95 ✅ **conferido no PDF** |
 | Quantos clientes temos em 2024? | Não tenho informações necessárias para responder sua pergunta. |
 | Qual é o tamanho da base de dados? | Não tenho informações necessárias para responder sua pergunta. |
 | Qual é a capital da França? | Não tenho informações necessárias para responder sua pergunta. |
 
-> Os dois valores numéricos vieram de READMEs de alunos, não do PDF lido por nós. **Conferir contra o PDF real na M5** antes de tratar como gabarito.
+> ✅ **Conferido na M2.0 (2026-08-15):** os dois valores, que vinham de READMEs de alunos, batem exatamente com o PDF real. O gabarito está validado.
+>
+> Par adicional para o teste de nomes colidentes (E7), extraído do PDF:
+> `Alfa Energia Holding` = R$ 858.537,02 (1971) · `Alfa Energia S.A.` = R$ 722.875.391,46 (1972).
 
 ---
 
@@ -332,28 +335,60 @@ Como os providers já estavam prontos, testar custou uma chamada mínima à API:
 
 ---
 
-### M2.0 — Spike de extração do PDF ⬜ 🔬
-**Gate de arquitetura (E6).** 5 minutos, antes de escrever qualquer linha da ingestão.
+### M2.0 — Spike de extração do PDF ✅ (2026-08-15) 🔬
+**Gate de arquitetura (E6). APROVADO** — a extração preserva a linha da tabela.
 
-- [ ] Rodar `PyPDFLoader(...).load()` e imprimir o `page_content` da página 1
-- [ ] Confirmar que a extração é **row-major**: `<nome da empresa> <faturamento> <ano>` na mesma linha/sequência
+- [x] `PyPDFLoader(...).load()` executado e `page_content` inspecionado
+- [x] Extração confirmada **row-major**
 
-**Por quê:** se o pypdf emitir coluna-a-coluna, nome e faturamento se separam e **a abordagem inteira morre** — nenhum chunk conteria o par pergunta/resposta. A decodificação bruta dos streams do PDF sugere row-major, mas é evidência indireta.
+```
+Nome da empresa Faturamento Ano de fundação
+Alfa Agronegócio Indústria R$ 85.675.568,77 1931
+Alfa Ambiental Participações R$ 5.774.383,30 2021
+Alfa Energia Holding R$ 858.537,02 1971
+```
 
-**DoD:** amostra de texto colada aqui no plano, com veredito. **Se falhar → parar e replanejar a M2** (opções: outro loader, `pdfplumber`, ou pré-processar o PDF para CSV antes de chunkar).
+| Medição | Valor |
+|---|---|
+| Páginas | 34 |
+| Caracteres totais | 45.217 |
+| Linhas | 1.002 (1.001 empresas + cabeçalho) |
+| Caracteres por página | 527 – 1.395 |
+| `creator` do PDF | `Google Sheets` |
+
+**Achado colateral:** o cabeçalho `Nome da empresa Faturamento Ano de fundação` aparece **uma única vez**, na página 1. Chunks das outras 33 páginas não têm rótulo de coluna — o LLM precisa inferir pelo formato (`R$` = faturamento, 4 dígitos = ano). Na prática o formato é autoexplicativo; monitorar na M5.
+
+**Por que era um gate:** se o pypdf emitisse coluna-a-coluna, nome e faturamento se separariam e **a abordagem inteira morreria** — nenhum chunk conteria o par pergunta/resposta. A hipótese row-major, levantada da decodificação bruta dos streams, se confirmou.
 
 ---
 
-### M2 — Ingestão ⬜
+### M2 — Ingestão ✅ (2026-08-15)
 
-- [ ] `src/ingest.py` — implementar `ingest_pdf()`: load → split (1000/150) → higiene de metadata → ids `doc-{i}` → `add_documents`
-- [ ] Resolver `PDF_PATH` de forma robusta — base `Path(__file__).parent.parent`, respeitando caminho absoluto se vier absoluto (B4)
-- [ ] Feedback no terminal: nº de páginas, nº de chunks, confirmação de gravação
-- [ ] Rodar `python src/ingest.py`
-- [ ] Documentar o comando de limpeza (D16), para quando parâmetros de chunking mudarem:
-      `docker exec postgres_rag psql -U postgres -d rag -c "DELETE FROM langchain_pg_embedding;"`
+- [x] `src/ingest.py` — `ingest_pdf()`: load → split (1000/150) → higiene de metadata → ids `doc-{i}` → `add_documents`
+- [x] `PDF_PATH` resolvido via `config.resolve_pdf_path()` (B4, feito na M1)
+- [x] Feedback no terminal: páginas, chunks, confirmação de gravação
+- [x] `python src/ingest.py` executado
+- [x] Comando de limpeza (D16) documentado no docstring do módulo
 
-**DoD:** `SELECT count(*) FROM langchain_pg_embedding;` retorna ~55–65 linhas. Rodar de novo **não aumenta** a contagem (D6).
+**DoD atingida:**
+
+| Verificação | Resultado |
+|---|---|
+| Chunks gerados | **67** (estimativa do plano era 55–65 — próximo) |
+| `count(*)` em `langchain_pg_embedding` | 67 |
+| Idempotência (D6) | ✅ reexecutado: 67 → **67**, sem duplicar |
+
+#### Teste antecipado de retrieval (E1/R9)
+
+Como a ingestão já estava no banco, valia medir o **risco central do projeto** antes da M3:
+
+| Pergunta | Distância top-1 | Posição do chunk correto |
+|---|---|---|
+| `Qual o faturamento da Empresa SuperTechIABrazil?` | 0.450 | **2** |
+| `Qual o faturamento da Alfa Energia Holding?` | 0.256 | **1** |
+| `Qual é a capital da França?` | 0.778 | — (não existe) |
+
+**R9 (diluição de embedding) rebaixado de Média para Baixa.** O chunk correto aparece no topo, não na cauda do `k=10`. Bônus: perguntas fora de contexto têm distância visivelmente maior (0.778 vs 0.256/0.450) — o que **confirma** que a D15 está certa em não usar threshold, já que o sinal existe mas o prompt dá conta sozinho.
 
 ---
 
@@ -416,7 +451,7 @@ A parte sem referência para copiar (§3.1).
 | ~~R2~~ | ~~`type "vector" does not exist` na ingestão (PR #6)~~ | ✅ **Eliminado** | **Materializou-se na M0 e foi corrigido na raiz (B5).** O diagnóstico original (race condition, do PR #6) estava errado: era argv splitting no `command` do compose. Extensão `vector` 0.8.6 verificada instalada |
 | R3 | `DATABASE_URL` sem `+psycopg` → falha de conexão | Alta se distraído | D8; validar já na M1 |
 | R4 | Linha de empresa partida entre chunks → resposta parcial | Média | `overlap=150` + `k=10` já mitigam; detectar na M5 testando páginas variadas |
-| **R9** | **Diluição de embedding (E1)** — cada chunk é a média semântica de ~15–20 empresas sem relação; o chunk certo pode não entrar no top-10 | Média | **Risco central do projeto.** Mitigação: `k=10` sobre ~60 chunks já cobre 1/6 do documento. Evidência tranquilizadora: entregas de alunos acertam as canárias com exatamente 1000/150/k=10. Detecção na M5 |
+| **R9** | **Diluição de embedding (E1)** — cada chunk é a média semântica de ~15–20 empresas sem relação; o chunk certo pode não entrar no top-10 | ~~Média~~ → **Baixa** (medido na M2: chunk correto nas posições 1 e 2) | **Risco central do projeto.** Mitigação: `k=10` sobre ~60 chunks já cobre 1/6 do documento. Evidência tranquilizadora: entregas de alunos acertam as canárias com exatamente 1000/150/k=10. Detecção na M5 |
 | **R10** | **Resposta trocada entre empresas de nome parecido (E7)** | Média-alta | Pior que errar: a resposta *parece* correta. Teste dedicado na M5 |
 | **R11** | Vetores órfãos após mudança de chunking (E2) | Média | D16 — dropar coleção antes de re-ingerir |
 | **R12** | `gpt-5-nano` indisponível no tier da chave ou devolvendo conteúdo vazio (E5) | Média | D17 (fallback de modelo) + D12(b) |
@@ -449,3 +484,4 @@ A parte sem referência para copiar (§3.1).
 | 2026-08-15 | **Revalidação.** 4 bloqueadores (B1–B4) e 8 edge cases (E1–E8). Novas decisões D13–D17; D6 e D12 revisadas; nova milestone M2.0 (spike de extração); M0 e M5 endurecidas; riscos R9–R13. Pendências §8 respondidas |
 | 2026-08-15 | **M0 executada e concluída.** B1–B3 corrigidos. Novo achado **B5** (argv splitting no bootstrap do compose) — bug do upstream, corrigido na raiz; R2 eliminado e seu diagnóstico original refutado |
 | 2026-08-15 | **M1 executada e concluída.** `config.py`, `providers.py`, `store.py`. B4 resolvido antecipadamente em `config.resolve_pdf_path()`; **D12 e D17 fechadas antes da M3** (temperature 0.3 aceito, `gpt-5-nano` disponível) |
+| 2026-08-15 | **M2.0 (gate) aprovada** — extração row-major confirmada; gabarito das canárias validado contra o PDF. **M2 concluída** — 67 chunks, idempotência confirmada, R9 rebaixado para Baixa |
