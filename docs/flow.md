@@ -11,31 +11,31 @@ a busca roda a cada pergunta.
 
 ```mermaid
 flowchart LR
-    PDF[("document.pdf<br/>34 páginas")]
-    LOAD["PyPDFLoader<br/><i>load_pages</i>"]
-    SPLIT["RecursiveCharacterTextSplitter<br/>1000 chars · overlap 150<br/><i>split_into_chunks</i>"]
-    CLEAN["remove metadados vazios<br/><i>drop_empty_metadata</i>"]
-    IDS["ids doc-0 … doc-66<br/><i>build_deterministic_ids</i>"]
-    EMB["OpenAI<br/>text-embedding-3-small"]
-    DB[("pgvector<br/>coleção desafio_rag<br/>67 chunks")]
+    A[document.pdf]
+    B[PyPDFLoader]
+    C[Split 1000/150]
+    D[Limpa metadados]
+    E[Gera ids]
+    F[Embeddings]
+    G[(pgvector)]
 
-    PDF --> LOAD --> SPLIT --> CLEAN --> IDS --> EMB --> DB
+    A --> B --> C --> D --> E --> F --> G
 
-    classDef file fill:#e8eaf6,stroke:#5c6bc0,color:#1a237e
-    classDef step fill:#e0f2f1,stroke:#26a69a,color:#004d40
-    classDef ext fill:#fff3e0,stroke:#ffa726,color:#e65100
-    class PDF,DB file
-    class LOAD,SPLIT,CLEAN,IDS step
-    class EMB ext
+    classDef dado fill:#e8eaf6,stroke:#5c6bc0
+    classDef passo fill:#e0f2f1,stroke:#26a69a
+    classDef api fill:#fff3e0,stroke:#ffa726
+    class A,G dado
+    class B,C,D,E passo
+    class F api
 ```
 
-**Por que cada passo existe**
-
-| Passo | Motivo |
-|---|---|
-| `overlap 150` | O PDF é uma tabela. O corte a cada 1000 caracteres parte linhas no meio; o overlap faz a linha partida reaparecer inteira no chunk seguinte |
-| `drop_empty_metadata` | O `pypdf` devolve campos vazios (`creationdate: ''`) que sujariam o `jsonb` sem servir para nada |
-| `build_deterministic_ids` | Ids posicionais tornam a reexecução um upsert — rodar duas vezes não duplica |
+| Etapa | O que acontece | Por que existe |
+|---|---|---|
+| `PyPDFLoader` | 34 páginas viram Documents | — |
+| Split | 1000 caracteres, overlap 150 → 67 chunks | O PDF é uma tabela: o corte parte linhas no meio, e o overlap faz a linha partida reaparecer inteira no chunk seguinte |
+| Limpa metadados | Remove campos vazios | O `pypdf` devolve `creationdate: ''`, que sujaria o `jsonb` sem servir para nada |
+| Gera ids | `doc-0` … `doc-66` | Ids posicionais tornam a reexecução um upsert — rodar duas vezes não duplica |
+| Embeddings | `text-embedding-3-small`, 1536 dimensões | — |
 
 ---
 
@@ -45,34 +45,32 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Q(["PERGUNTA<br/>do usuário"])
-    EMBQ["OpenAI<br/>text-embedding-3-small"]
-    SEARCH["similarity_search_with_score<br/>k = 10<br/><i>retrieve_context</i>"]
-    DB[("pgvector<br/>coleção desafio_rag")]
-    JOIN["junta os page_content<br/>dos 10 chunks"]
-    PROMPT["PROMPT_TEMPLATE<br/>{contexto} + {pergunta}"]
-    LLM["OpenAI<br/>gpt-5-nano · temp 0.3"]
-    PARSE["StrOutputParser"]
-    A(["RESPOSTA<br/>ou frase de recusa"])
+    Q[Pergunta]
+    E[Embedding]
+    S[Busca k=10]
+    DB[(pgvector)]
+    C[Monta contexto]
+    P[Prompt]
+    L[gpt-5-nano]
+    R[Resposta]
 
-    Q --> EMBQ --> SEARCH
-    DB -.-> SEARCH
-    SEARCH --> JOIN --> PROMPT --> LLM --> PARSE --> A
-    Q -.->|passthrough| PROMPT
+    Q --> E --> S --> C --> P --> L --> R
+    DB -.-> S
+    Q -.-> P
 
-    classDef io fill:#f3e5f5,stroke:#ab47bc,color:#4a148c
-    classDef step fill:#e0f2f1,stroke:#26a69a,color:#004d40
-    classDef ext fill:#fff3e0,stroke:#ffa726,color:#e65100
-    classDef file fill:#e8eaf6,stroke:#5c6bc0,color:#1a237e
-    class Q,A io
-    class SEARCH,JOIN,PROMPT,PARSE step
-    class EMBQ,LLM ext
-    class DB file
+    classDef dado fill:#e8eaf6,stroke:#5c6bc0
+    classDef passo fill:#e0f2f1,stroke:#26a69a
+    classDef api fill:#fff3e0,stroke:#ffa726
+    classDef io fill:#f3e5f5,stroke:#ab47bc
+    class Q,R io
+    class S,C,P passo
+    class E,L api
+    class DB dado
 ```
 
-A pergunta segue por dois caminhos ao mesmo tempo: vira vetor para buscar os chunks que
-preenchem o `{contexto}`, e chega intacta ao `{pergunta}` do template. É o que a chain LCEL
-expressa:
+A linha pontilhada de `Pergunta` para `Prompt` é o segundo caminho: a pergunta vira vetor para
+buscar os chunks que preenchem o `contexto`, e ao mesmo tempo chega intacta ao template. É o que
+a chain expressa:
 
 ```python
 {
@@ -84,9 +82,8 @@ expressa:
 | StrOutputParser()
 ```
 
-**Onde a recusa acontece:** não há filtro por score. Os 10 chunks vêm sempre, relevantes ou
-não. Quem decide recusar é o `PROMPT_TEMPLATE`, ao constatar que a resposta não está no
-`{contexto}`.
+**Onde a recusa acontece:** não há filtro por score. Os 10 chunks vêm sempre, relevantes ou não.
+Quem decide recusar é o `PROMPT_TEMPLATE`, ao constatar que a resposta não está no contexto.
 
 ---
 
@@ -94,30 +91,26 @@ não. Quem decide recusar é o `PROMPT_TEMPLATE`, ao constatar que a resposta n�
 
 ```mermaid
 flowchart LR
-    subgraph ING["Ingestão · uma vez"]
-        direction LR
-        P[("PDF")] --> C["chunks<br/>1000/150"] --> E1["embeddings"]
+    subgraph ING[Ingestao - uma vez]
+        P[PDF] --> C[Chunks] --> E1[Embeddings]
     end
 
-    DB[("pgvector<br/>desafio_rag")]
+    DB[(pgvector)]
 
-    subgraph BUSCA["Busca · a cada pergunta"]
-        direction LR
-        Q(["pergunta"]) --> E2["embedding"] --> K["top 10"] --> L["LLM"] --> R(["resposta"])
+    subgraph BUSCA[Busca - a cada pergunta]
+        Q[Pergunta] --> E2[Embedding] --> K[Top 10] --> L[LLM] --> R[Resposta]
     end
 
     E1 --> DB
     DB -.-> K
 
-    classDef file fill:#e8eaf6,stroke:#5c6bc0,color:#1a237e
-    classDef step fill:#e0f2f1,stroke:#26a69a,color:#004d40
-    classDef io fill:#f3e5f5,stroke:#ab47bc,color:#4a148c
-    class P,DB file
-    class C,E1,E2,K,L step
-    class Q,R io
+    classDef dado fill:#e8eaf6,stroke:#5c6bc0
+    classDef passo fill:#e0f2f1,stroke:#26a69a
+    class P,DB dado
+    class C,E1,Q,E2,K,L,R passo
 ```
 
-O acoplamento entre os dois é uma variável só: `PG_VECTOR_COLLECTION_NAME`. E uma regra —
-**os dois lados precisam usar o mesmo modelo de embeddings**. Vetores de modelos diferentes não
-são comparáveis, e a busca degradaria em silêncio. É por isso que `ingest.py` e `search.py`
-pedem o modelo ao `providers.py` em vez de instanciarem o seu próprio.
+O acoplamento entre os dois é uma variável só: `PG_VECTOR_COLLECTION_NAME`. E uma regra — **os
+dois lados precisam usar o mesmo modelo de embeddings**. Vetores de modelos diferentes não são
+comparáveis, e a busca degradaria em silêncio. É por isso que `ingest.py` e `search.py` pedem o
+modelo ao `providers.py` em vez de instanciarem o seu próprio.
