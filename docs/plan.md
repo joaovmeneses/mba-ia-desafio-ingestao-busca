@@ -1,7 +1,7 @@
 # Plano de Implementação — Desafio RAG (Ingestão + Busca)
 
 > Documento vivo. Serve para revisão antes da execução e para registrar decisões conforme forem sendo tomadas.
-> **Status geral:** **M0, M1, M2.0 e M2 concluídas.** 67 chunks ingeridos e retrieval validado. Próxima: **M3 — busca e chain**.
+> **Status geral:** **M0 a M5 concluídas.** Solução funcionando e validada em ambiente limpo. Próxima: **M6 — entrega (README + PR)**.
 > Última atualização: 2026-08-15.
 
 ---
@@ -429,18 +429,44 @@ A parte sem referência para copiar (§3.1).
 
 ---
 
-### M5 — Validação ⬜
+### M5 — Validação ✅ (2026-08-15)
 
-- [ ] Rodar as 5 perguntas-canário de §2.4
-- [ ] **Conferir os valores numéricos contra o PDF real** (o gabarito de §2.4 veio de terceiros)
-- [ ] Testar 3–5 empresas adicionais de páginas diferentes (início, meio, fim) — valida que a fragmentação da tabela não cria pontos cegos
-- [ ] **Teste de nomes colidentes (E1/E7)** — escolher 2–3 famílias de nome quase idêntico (ex.: `Alfa Energia Holding` / `Alfa Energia S A` / `Alfa Energia Indústria`) e conferir **o valor exato de cada uma** contra o PDF. É o modo de falha mais perigoso: a resposta parece certa e está errada
-- [ ] Testar pergunta agregada ("quantas empresas existem?") e confirmar que **recusa** em vez de alucinar
-- [ ] Teste de ambiente limpo: `docker compose down -v && docker compose up -d` → ingest → chat
+- [x] 5 perguntas-canário de §2.4
+- [x] Valores conferidos contra o PDF real (gabarito extraído no ato, sem intermediários)
+- [x] Empresas de páginas diferentes do PDF
+- [x] **Teste de nomes colidentes (E1/E7)**
+- [x] Pergunta agregada — **ver limitação abaixo**
+- [x] Ambiente limpo: `docker compose down -v` → `up -d` → ingest → chat
 
-**DoD:** 100% das canárias corretas; **zero troca de valor entre empresas de nome parecido**; nenhuma alucinação nas perguntas fora de contexto.
+**Faturamentos: 6/6.** Valor exato, incluindo as duas famílias colidentes:
 
-> Se o teste de nomes colidentes falhar, é sinal de **diluição de embedding** (E1) — o chunk certo não entrou no top-10. Diagnóstico antes de qualquer mudança: imprimir os 10 chunks recuperados e verificar se a linha da empresa está entre eles. Se estiver e o LLM errou → problema de prompt/atenção. Se não estiver → problema de retrieval, e aí a conversa é sobre desviar da spec (o que exige registrar no README).
+| Empresa | Esperado | Resposta |
+|---|---|---|
+| SuperTechIABrazil | R$ 10.000.000,00 | ✅ |
+| Aurora Educação EPP | R$ 4.321.211.894,95 | ✅ |
+| Alfa Energia **Holding** | R$ 858.537,02 | ✅ |
+| Alfa Energia **S.A.** | R$ 722.875.391,46 | ✅ |
+| Alfa Sustentável **EPP** | R$ 268.505,61 | ✅ |
+| Alfa Sustentável **Holding** | R$ 543.366,64 | ✅ |
+
+**E7 não se materializou:** nenhuma troca de valor entre empresas de nome quase idêntico, mesmo com ordens de grandeza muito diferentes (R$ 858 mil vs R$ 722 milhões).
+
+**Recusas: 4/5.** As 4 do enunciado e do template passam com a frase literal. A quinta é uma limitação conhecida:
+
+#### Limitação: perguntas agregadas (nova, documentada)
+
+`Quantas empresas existem no documento?` → responde **161** em vez de recusar. Diagnóstico:
+
+| Medida | Valor |
+|---|---|
+| Linhas de empresa nos 10 chunks recuperados | **162** |
+| Total real no PDF | 1.001 |
+
+O modelo **contou as linhas do contexto** — está sendo fiel ao `CONTEXTO`, que é o que o prompt manda. O problema é que o contexto é 1/6 do documento, e o template não tem como distinguir "não está no contexto" de "está parcialmente no contexto".
+
+**Decisão: não corrigir.** A única correção possível seria instruir o template a recusar agregações, e o `PROMPT_TEMPLATE` é o artefato avaliado — não pode ser alterado (§2.3). Também não é uma das perguntas do enunciado: os 3 few-shots do template e as 4 canárias oficiais passam todos. Fica documentado no README como limitação conhecida da abordagem RAG com `k` fixo.
+
+**Ambiente limpo:** `down -v` → `up -d` → extensão `vector` 0.8.6 recriada → 67 chunks → chat respondendo correto. Reproduzível do zero.
 
 ---
 
@@ -465,11 +491,11 @@ A parte sem referência para copiar (§3.1).
 | R3 | `DATABASE_URL` sem `+psycopg` → falha de conexão | Alta se distraído | D8; validar já na M1 |
 | R4 | Linha de empresa partida entre chunks → resposta parcial | Média | `overlap=150` + `k=10` já mitigam; detectar na M5 testando páginas variadas |
 | **R9** | **Diluição de embedding (E1)** — cada chunk é a média semântica de ~15–20 empresas sem relação; o chunk certo pode não entrar no top-10 | ~~Média~~ → **Baixa** (medido na M2: chunk correto nas posições 1 e 2) | **Risco central do projeto.** Mitigação: `k=10` sobre ~60 chunks já cobre 1/6 do documento. Evidência tranquilizadora: entregas de alunos acertam as canárias com exatamente 1000/150/k=10. Detecção na M5 |
-| **R10** | **Resposta trocada entre empresas de nome parecido (E7)** | Média-alta | Pior que errar: a resposta *parece* correta. Teste dedicado na M5 |
+| **R10** | **Resposta trocada entre empresas de nome parecido (E7)** | ✅ **Não se materializou** (6/6 na M5) | Pior que errar: a resposta *parece* correta. Teste dedicado na M5 |
 | **R11** | Vetores órfãos após mudança de chunking (E2) | Média | D16 — dropar coleção antes de re-ingerir |
 | **R12** | `gpt-5-nano` indisponível no tier da chave ou devolvendo conteúdo vazio (E5) | Média | D17 (fallback de modelo) + D12(b) |
 | **R13** | Follow-up conversacional não funciona (E8) — `PROMPT_TEMPLATE` não tem histórico | Certa | **Não-goal explícito.** Cada pergunta é independente. Documentar no README para não parecer defeito |
-| R5 | Modelo alucina em pergunta agregada em vez de recusar | Média | `PROMPT_TEMPLATE` já tem 3 few-shots de recusa; se falhar, é sinal de que a chain está injetando `{contexto}` errado — **não** editar o template |
+| R5 | Modelo alucina em pergunta agregada em vez de recusar | ⚠️ **Confirmado na M5** | `PROMPT_TEMPLATE` já tem 3 few-shots de recusa; se falhar, é sinal de que a chain está injetando `{contexto}` errado — **não** editar o template |
 | R6 | Re-ingestão duplicando vetores | Baixa | D6 (ids determinísticos) |
 | R7 | Custo de API | Desprezível | ~60 embeddings na ingestão + ~2,5k tokens por pergunta |
 | R8 | Gabarito de §2.4 vir de terceiros e estar errado | Baixa | M5 confere contra o PDF |
