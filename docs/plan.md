@@ -1,7 +1,7 @@
 # Plano de Implementação — Desafio RAG (Ingestão + Busca)
 
 > Documento vivo. Serve para revisão antes da execução e para registrar decisões conforme forem sendo tomadas.
-> **Status geral:** **M0 concluída** (ambiente pronto, banco no ar com pgvector). Próxima: **M1 — Config + Providers**.
+> **Status geral:** **M0 e M1 concluídas.** Ambiente no ar, providers e store validados. Próxima: **M2.0 — spike de extração do PDF** (gate).
 > Última atualização: 2026-08-15.
 
 ---
@@ -237,12 +237,12 @@ Formato: `Aberta` = precisa de definição antes/durante a execução · `Decidi
 | **D9** | Coleção por provider | ⚪ Não se aplica | Resolvida por D1 (só OpenAI) — uma coleção só. Se um dia entrar Gemini, aí sim precisa de coleção separada: dimensões e espaços semânticos diferentes não são comparáveis. |
 | **D10** | Testes automatizados | 🟢 Decidida | **Sem pytest.** Não está no `requirements.txt`, não existe em nenhum repo de referência e o desafio não pede. Validação = checklist de perguntas-canário na M5. Adicionar pytest seria overengineering para 200 linhas. |
 | **D11** | Python 3.12 no venv | 🟢 Decidida | Sistema tem 3.9.6, insuficiente para `numpy==2.3.2` (≥3.11). Homebrew tem 3.12 e 3.13; fixar 3.12 por ser a mais rodada com esse stack. |
-| **D12** | Parâmetros do LLM (família gpt-5) | 🟡 Parcial — (a) decidida, (b)(c) na M3 | Ampliada por E5. Três frentes: (a) **`temperature` = `0.3`** (decidido 2026-08-15); a família gpt-5 costuma exigir `1`, então se a API recusar, **omitir o parâmetro**; (b) **resposta vazia** — modelo de reasoning pode gastar o budget no raciocínio e devolver `content` vazio; não limitar `max_tokens` sem necessidade; (c) **modelo indisponível** no tier da chave → ver D17. Decidir com o erro real na mão. |
+| **D12** | Parâmetros do LLM (família gpt-5) | 🟢 **Fechada na M1** — `temperature=0.3` aceito por `gpt-5-nano`; sem resposta vazia | Ampliada por E5. Três frentes: (a) **`temperature` = `0.3`** (decidido 2026-08-15); a família gpt-5 costuma exigir `1`, então se a API recusar, **omitir o parâmetro**; (b) **resposta vazia** — modelo de reasoning pode gastar o budget no raciocínio e devolver `content` vazio; não limitar `max_tokens` sem necessidade; (c) **modelo indisponível** no tier da chave → ver D17. Decidir com o erro real na mão. |
 | **D13** | Porta do Postgres | 🟢 Decidida (2026-08-15) | **`"55432:5432"`** — 55432 no host (verificada livre), 5432 interno. A 5432 do host está ocupada pelo backend do Docker. Corrige B1+B2+B3 juntos. Aceita-se o diff no `docker-compose.yml` em relação ao upstream; documentar o motivo no README. |
 | **D14** | `search_prompt(question=None)` com argumento | 🟢 Decidida (2026-08-15) | **Suportar os dois modos.** Sem argumento → devolve a chain (o que `chat.py` usa). Com pergunta → invoca e devolve a resposta em `str`. ~3 linhas, defende contra avaliação automática que chame de outra forma. |
 | **D15** | Threshold de score na busca | 🟢 Decidida | **Não aplicar.** O enunciado fixa `k=10`; toda pergunta fora de contexto vai receber 10 chunks irrelevantes e a recusa depende **inteiramente** do `PROMPT_TEMPLATE`. É by design — registrado para não sermos tentados a "consertar" depois. Os scores são descartados (mas ver E3: a API devolve tuplas). |
 | **D16** | Limpeza ao mudar parâmetros de chunking | 🟢 Decidida (2026-08-15) | Mudança em `chunk_size`/`overlap`/provider exige **dropar a coleção antes de re-ingerir** — senão sobram vetores órfãos de índice alto (E2). Documentar no README + comando pronto na M2. |
-| **D17** | Plano B de modelo | 🟢 Decidida (2026-08-15) | Se `gpt-5-nano` não estiver liberado na chave: cair para `gpt-4o-mini` (mesma família de API, sem restrição de `temperature`) e **registrar o desvio no README**, já que o enunciado nomeia `gpt-5-nano`. Ordem de tentativa: `gpt-5-nano` → `gpt-5-mini` → `gpt-4o-mini`. |
+| **D17** | Plano B de modelo | ⚪ **Não necessário** — `gpt-5-nano` disponível (verificado na M1); mantido só como contingência | Se `gpt-5-nano` não estiver liberado na chave: cair para `gpt-4o-mini` (mesma família de API, sem restrição de `temperature`) e **registrar o desvio no README**, já que o enunciado nomeia `gpt-5-nano`. Ordem de tentativa: `gpt-5-nano` → `gpt-5-mini` → `gpt-4o-mini`. |
 
 ---
 
@@ -299,15 +299,36 @@ command:
 
 ---
 
-### M1 — Config + Providers ⬜
+### M1 — Config + Providers ✅ (2026-08-15)
 Primeiro código. As duas peças que sustentam o DIP.
 
-- [ ] `src/config.py` — `load_dotenv()`, leitura das env vars, `require_env(*keys)` no estilo do professor (`raise RuntimeError(f"Environment variable {k} is not set")`)
-- [ ] `src/providers.py` — `get_embeddings()` e `get_llm()`, resolvendo o provider por env conforme D1
-- [ ] `src/store.py` — `get_vector_store()` devolvendo `PGVector(embeddings=..., collection_name=..., connection=..., use_jsonb=True)`
-- [ ] Atualizar `.env.example` com a variável de chat model (D7)
+- [x] `src/config.py` — `load_dotenv()`, constantes de env, `require_env(*keys)` e `resolve_pdf_path()`
+- [x] `src/providers.py` — `get_embeddings()` e `get_llm()`; **único** módulo que importa `langchain_openai`
+- [x] `src/store.py` — `get_vector_store()` com os 4 kwargs do padrão do professor
+- [x] `.env.example` com a variável de chat model — feito na M0 (D7)
 
-**DoD:** `python -c "import sys; sys.path.insert(0,'src'); import store; store.get_vector_store()"` conecta sem erro.
+**DoD atingida:**
+
+| Verificação | Resultado |
+|---|---|
+| `get_vector_store()` conecta | ✅ `PGVector`, coleção `desafio_rag` |
+| Tabelas criadas | ✅ `langchain_pg_collection`, `langchain_pg_embedding` |
+| `resolve_pdf_path()` | ✅ resolve para caminho absoluto (B4 fechado) |
+| `get_embeddings()` | ✅ `text-embedding-3-small`, **1536 dimensões** |
+| `get_llm()` | ✅ `gpt-5-nano` responde, conteúdo não-vazio |
+
+**Antecipações em relação ao plano** (feitas por serem baratas e reduzirem risco à frente):
+
+- **B4 resolvido aqui**, não na M2: `resolve_pdf_path()` mora em `config.py` porque é resolução de configuração. Aceita caminho absoluto e resolve relativo contra `BASE_DIR`, com erro claro se o arquivo não existir.
+- **D12 resolvida aqui**, não na M3 — ver abaixo.
+
+#### D12 e D17 — fechadas antecipadamente
+
+Como os providers já estavam prontos, testar custou uma chamada mínima à API:
+
+- **D12(a) `temperature=0.3` → aceito** por `gpt-5-nano`. A preocupação de que a família gpt-5 exigisse `temperature=1` **não se confirmou**. Fica `0.3`, sem fallback necessário.
+- **D12(b) resposta vazia → não ocorreu.** Sinal bom, mas o teste foi um prompt curto; a M3 ainda valida com o prompt real (~2,5k tokens de contexto).
+- **D17 plano B de modelo → não é necessário.** `gpt-5-nano` está liberado na chave. Fica registrado apenas como contingência.
 
 ---
 
@@ -427,3 +448,4 @@ A parte sem referência para copiar (§3.1).
 | 2026-08-15 | D1 fechada (OpenAI); D9 descartada por consequência |
 | 2026-08-15 | **Revalidação.** 4 bloqueadores (B1–B4) e 8 edge cases (E1–E8). Novas decisões D13–D17; D6 e D12 revisadas; nova milestone M2.0 (spike de extração); M0 e M5 endurecidas; riscos R9–R13. Pendências §8 respondidas |
 | 2026-08-15 | **M0 executada e concluída.** B1–B3 corrigidos. Novo achado **B5** (argv splitting no bootstrap do compose) — bug do upstream, corrigido na raiz; R2 eliminado e seu diagnóstico original refutado |
+| 2026-08-15 | **M1 executada e concluída.** `config.py`, `providers.py`, `store.py`. B4 resolvido antecipadamente em `config.resolve_pdf_path()`; **D12 e D17 fechadas antes da M3** (temperature 0.3 aceito, `gpt-5-nano` disponível) |
