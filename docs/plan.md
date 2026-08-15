@@ -332,6 +332,17 @@ Primeiro código. As duas peças que sustentam o DIP.
 Como os providers já estavam prontos, testar custou uma chamada mínima à API:
 
 - ~~**D12(a) `temperature=0.3` → aceito** por `gpt-5-nano`.~~ ❌ **Conclusão errada, corrigida em 2026-08-15.** O teste (`invoke` bem-sucedido) não provava nada: o `langchain-openai` 0.3.30 tem um `model_validator` chamado `validate_temperature` que **remove o parâmetro em silêncio** quando o modelo começa com `gpt-5` e o valor é diferente de `1`. A API nunca recebeu `0.3`. A preocupação original **estava certa**. Ver D19.
+
+  **Prova direta**, chamando a API sem o langchain no meio:
+
+  ```
+  temperature=0.3 -> 400 BadRequestError
+     "Unsupported value: 'temperature' does not support 0.3 with this model.
+      Only the default (1) value is supported."
+  temperature=1   -> OK
+  ```
+
+  **Lição de método:** o teste da M1 (`invoke` bem-sucedido) media o *resultado*, não o *mecanismo* — e não tinha como falhar, porque o wrapper absorvia o erro. Para validar um parâmetro, inspecione o objeto construído ou fure a camada de abstração; sucesso da chamada não é evidência de que o parâmetro foi aplicado.
 - **D12(b) resposta vazia → não ocorreu.** Sinal bom, mas o teste foi um prompt curto; a M3 ainda valida com o prompt real (~2,5k tokens de contexto).
 - **D17 plano B de modelo → não é necessário.** `gpt-5-nano` está liberado na chave. Fica registrado apenas como contingência.
 
