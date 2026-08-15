@@ -61,7 +61,7 @@ deste repositório:
 | `OPENAI_API_KEY` | sua chave |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` |
 | `OPENAI_CHAT_MODEL` | `gpt-5-nano` |
-| `AI_TEMPERATURE` | `0.3` |
+| `AI_TEMPERATURE` | `0.7` |
 | `DATABASE_URL` | `postgresql+psycopg://postgres:postgres@localhost:55432/rag` |
 | `PG_VECTOR_COLLECTION_NAME` | `desafio_rag` |
 | `PDF_PATH` | `./document.pdf` |
