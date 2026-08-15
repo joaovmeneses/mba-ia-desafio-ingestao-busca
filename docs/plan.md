@@ -392,17 +392,27 @@ Como a ingestão já estava no banco, valia medir o **risco central do projeto**
 
 ---
 
-### M3 — Busca e chain ⬜
+### M3 — Busca e chain ✅ (2026-08-15)
 A parte sem referência para copiar (§3.1).
 
-- [ ] `src/search.py` — implementar `search_prompt(question=None)` devolvendo a chain LCEL de §4.3
-- [ ] Modo duplo conforme D14 (sem argumento → chain; com pergunta → resposta em `str`)
-- [ ] **E3** — desempacotar as tuplas: `similarity_search_with_score` devolve `(Document, score)`, não `Document`
-- [ ] `PROMPT_TEMPLATE` permanece **intocado**
-- [ ] Resolver D12 com o erro real (temperature / resposta vazia / disponibilidade do modelo → D17)
-- [ ] Teste manual: `chain.invoke("Qual o faturamento da Empresa SuperTechIABrazil?")`
+- [x] `src/search.py` — `search_prompt(question=None)` devolvendo a chain LCEL de §4.3
+- [x] Modo duplo conforme D14
+- [x] **E3** — tuplas `(documento, distância)` desempacotadas
+- [x] `PROMPT_TEMPLATE` **intocado** — verificado por diff contra `82d86ce:src/search.py`
+- [x] D12 já fechada na M1
 
-**DoD:** a chain devolve string com o faturamento correto para a pergunta-canário, e a frase de recusa literal para "Qual é a capital da França?".
+**DoD atingida:**
+
+| Verificação | Resultado |
+|---|---|
+| `PROMPT_TEMPLATE` idêntico ao upstream | ✅ comparação programática, `True` |
+| Variáveis resolvidas pelo template | ✅ `['contexto', 'pergunta']` |
+| Modo fábrica (`search_prompt()`) | ✅ `RunnableSequence`, truthy |
+| `Qual o faturamento da Empresa SuperTechIABrazil?` | ✅ `R$ 10.000.000,00` |
+| `Qual é a capital da França?` | ✅ frase de recusa **literal** |
+| Modo direto (D14) — `ano de fundação da Alfa Energia Holding` | ✅ `1971` (correto, e já é da família colidente do E7) |
+
+**Nota de implementação:** `search_prompt()` captura falhas de inicialização e devolve `None`, imprimindo o erro. Isso torna vivo o `if not chain:` que já vinha escrito no `chat.py` do skeleton — sem isso, aquele early-return seria código morto.
 
 ---
 
